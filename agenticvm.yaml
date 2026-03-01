@@ -116,10 +116,17 @@ provision:
       #!/bin/bash
       set -eux -o pipefail
 
+      # ──  uv (fast Python package and project manager) ──────────────────────────
+      echo "Installing uv..."
+      if ! command -v uv &>/dev/null; then
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+      fi
+
       # ── Claude Code ───────────────────────────────────────────────────────────
       echo "Installing Claude Code..."
       if ! command -v claude &>/dev/null; then
         curl -fsSL https://claude.ai/install.sh | bash
+        claude mcp add-json chrome-devtools '{"command": "npx", "args": ["-y", "chrome-devtools-mcp@latest", "--headless=true", "--isolated=true"]}' --scope user
       fi
 
       # ── Shell configuration (.zshrc) ──────────────────────────────────────────
@@ -127,8 +134,8 @@ provision:
       touch "$ZSHRC"
 
       # PATH additions (idempotent)
-      grep -qxF 'export PATH=$HOME/.local/bin:$HOME/.claude/local/bin:$PATH' "$ZSHRC" \
-        || echo 'export PATH=$HOME/.local/bin:$HOME/.claude/local/bin:$PATH' >> "$ZSHRC"
+      grep -qxF 'export PATH=$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.claude/local/bin:$PATH' "$ZSHRC" \
+        || echo 'export PATH=$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.claude/local/bin:$PATH' >> "$ZSHRC"
 
       # Minimal prompt
       grep -qxF 'export PS1="vm:%1~%% "' "$ZSHRC" \
