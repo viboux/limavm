@@ -1,0 +1,138 @@
+# agenticvm.yaml
+# A Lima VM template based on Debian 12 (bookworm) with a full developer toolchain:
+#   - Base CLI tools: git, curl, jq, zsh, wget, build-essential, python3, ripgrep, fd-find, htop, etc.
+#   - Docker CE (from official Docker repo, with Compose plugin)
+#   - Node.js 24 (from NodeSource, for MCP servers and JS tooling)
+#   - Chromium + Xvfb (headless browser, symlinked as google-chrome)
+#   - GitHub CLI (gh)
+#   - Claude Code
+#
+# Usage:
+#   limactl start agenticvm.yaml
+#   limactl shell agenticvm
+
+base:
+  - template://_images/debian-13
+
+# Recommended defaults — tune to taste
+cpus: 4
+memory: "4GiB"
+disk: "20GiB"
+
+# containerd is not needed; Docker manages its own container runtime
+containerd:
+  system: false
+  user: false
+
+mounts:
+  - location: "~/Dev"
+    writable: true
+  - location: "/tmp/lima"
+    writable: true
+
+provision:
+  # ─── System-level provisioning (runs as root) ────────────────────────────────
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      export DEBIAN_FRONTEND=noninteractive
+
+      # Disable needrestart's interactive prompts
+      sudo mkdir -p /etc/needrestart/conf.d
+      echo '$nrconf{restart} = '"'"'a'"'"';' | sudo tee /etc/needrestart/conf.d/no-prompt.conf > /dev/null
+
+      # ── Base packages ────────────────────────────────────────────────────────
+      echo "Installing base packages..."
+      apt-get update -qq
+      apt-get install -y \
+        git curl jq zsh \
+        wget build-essential \
+        python3 python3-pip python3-venv \
+        ripgrep fd-find htop \
+        unzip zip \
+        ca-certificates \
+        iptables
+
+       # Set zsh as the default shell for the Lima user
+      usermod -s /usr/bin/zsh "{{.User}}"
+
+      # ── Docker CE (official repo) ─────────────────────────────────────────────
+      echo "Installing Docker..."
+      if ! systemctl is-active --quiet docker; then
+        install -m 0755 -d /etc/apt/keyrings
+        curl -fsSL https://download.docker.com/linux/debian/gpg \
+          -o /etc/apt/keyrings/docker.asc
+        chmod a+r /etc/apt/keyrings/docker.asc
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
+          https://download.docker.com/linux/debian \
+          $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
+          | tee /etc/apt/sources.list.d/docker.list > /dev/null
+        apt-get update -qq
+        apt-get install -y \
+          docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+      fi
+
+      # Add the Lima user to the docker group so docker works without sudo
+      #LIMA_USER="$(logname 2>/dev/null || echo ${SUDO_USER:-lima})"
+      #usermod -aG docker "$LIMA_USER"
+      usermod -aG docker "{{.User}}"
+
+      # ── Node.js 24 LTS (NodeSource) ───────────────────────────────────────────
+      echo "Installing Node.js 24..."
+      if ! command -v node &>/dev/null; then
+        curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+        apt-get install -y nodejs
+      fi
+
+      # ── Chromium + headless browser dependencies ──────────────────────────────
+      echo "Installing Chromium..."
+      if ! command -v chromium &>/dev/null; then
+        apt-get install -y chromium fonts-liberation xvfb
+      fi
+      # Symlink as google-chrome / google-chrome-stable for tool compatibility
+      ln -sf /usr/bin/chromium /usr/bin/google-chrome
+      ln -sf /usr/bin/chromium /usr/bin/google-chrome-stable
+      mkdir -p /opt/google/chrome
+      ln -sf /usr/bin/chromium /opt/google/chrome/chrome
+
+      # ── GitHub CLI (official repo) ────────────────────────────────────────────
+      echo "Installing GitHub CLI..."
+      if ! command -v gh &>/dev/null; then
+        mkdir -p -m 755 /etc/apt/keyrings
+        wget -qO- https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+          | tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null
+        chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] \
+          https://cli.github.com/packages stable main" \
+          | tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+        apt-get update -qq
+        apt-get install -y gh
+      fi
+
+  # ─── User-level provisioning (runs as the Lima user) ─────────────────────────
+  - mode: user
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+
+      # ── Claude Code ───────────────────────────────────────────────────────────
+      echo "Installing Claude Code..."
+      if ! command -v claude &>/dev/null; then
+        curl -fsSL https://claude.ai/install.sh | bash
+      fi
+
+      # ── Shell configuration (.zshrc) ──────────────────────────────────────────
+      ZSHRC="$HOME/.zshrc"
+      touch "$ZSHRC"
+
+      # PATH additions (idempotent)
+      grep -qxF 'export PATH=$HOME/.local/bin:$HOME/.claude/local/bin:$PATH' "$ZSHRC" \
+        || echo 'export PATH=$HOME/.local/bin:$HOME/.claude/local/bin:$PATH' >> "$ZSHRC"
+
+      # Minimal prompt
+      grep -qxF 'export PS1="vm:%1~%% "' "$ZSHRC" \
+        || echo 'export PS1="vm:%1~%% "' >> "$ZSHRC"
+
+      echo "Provisioning complete. Run 'limactl shell agenticvm' to enter the VM."
+      
