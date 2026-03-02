@@ -126,8 +126,16 @@ provision:
       echo "Installing Claude Code..."
       if ! command -v claude &>/dev/null; then
         curl -fsSL https://claude.ai/install.sh | bash
-        claude mcp add-json chrome-devtools '{"command": "npx", "args": ["-y", "chrome-devtools-mcp@latest", "--headless=true", "--isolated=true"]}' --scope user
       fi
+
+      # Bootstrap Claude config so mcp subcommands work non-interactively,
+      # then register MCP servers. PATH must be set first so claude is found.
+      echo "Configuring Claude MCP servers..."
+      export PATH="$HOME/.local/bin:$HOME/.claude/local/bin:$PATH"
+      claude --version >/dev/null 2>&1 || true
+      claude mcp add-json chrome-devtools \
+        '{"command":"npx","args":["-y","chrome-devtools-mcp@latest","--headless=true","--isolated=true"]}' \
+        --scope user
 
       # ── Shell configuration (.zshrc) ──────────────────────────────────────────
       ZSHRC="$HOME/.zshrc"
