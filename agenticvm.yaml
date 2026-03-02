@@ -1,5 +1,5 @@
 # agenticvm.yaml
-# A Lima VM template based on Debian 12 (bookworm) with a full developer toolchain:
+# A Lima VM template based on Debian 13 (trixie) with a full developer toolchain:
 #   - Base CLI tools: git, curl, jq, zsh, wget, build-essential, python3, ripgrep, fd-find, htop, etc.
 #   - Docker CE (from official Docker repo, with Compose plugin)
 #   - Node.js 24 (from NodeSource, for MCP servers and JS tooling)
@@ -39,12 +39,13 @@ provision:
       export DEBIAN_FRONTEND=noninteractive
 
       # Disable needrestart's interactive prompts
-      sudo mkdir -p /etc/needrestart/conf.d
-      echo '$nrconf{restart} = '"'"'a'"'"';' | sudo tee /etc/needrestart/conf.d/no-prompt.conf > /dev/null
+      mkdir -p /etc/needrestart/conf.d
+      echo '$nrconf{restart} = '"'"'a'"'"';' | tee /etc/needrestart/conf.d/no-prompt.conf > /dev/null
 
       # ── Base packages ────────────────────────────────────────────────────────
       echo "Installing base packages..."
       apt-get update -qq
+      apt-get upgrade -y
       apt-get install -y \
         git curl jq zsh \
         wget build-essential \
@@ -59,7 +60,8 @@ provision:
 
       # ── Docker CE (official repo) ─────────────────────────────────────────────
       echo "Installing Docker..."
-      if ! systemctl is-active --quiet docker; then
+      #if ! systemctl is-active --quiet docker; then
+      if ! command -v docker &>/dev/null; then
         install -m 0755 -d /etc/apt/keyrings
         curl -fsSL https://download.docker.com/linux/debian/gpg \
           -o /etc/apt/keyrings/docker.asc
@@ -109,6 +111,9 @@ provision:
         apt-get update -qq
         apt-get install -y gh
       fi
+
+      # Cleanup
+      apt-get clean -y
 
   # ─── User-level provisioning (runs as the Lima user) ─────────────────────────
   - mode: user
