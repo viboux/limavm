@@ -27,8 +27,8 @@ containerd:
 mounts:
   - location: "~/Dev"
     writable: true
-  - location: "/tmp/lima"
-    writable: true
+#  - location: "/tmp/lima"
+#    writable: true
 
 provision:
   # ─── System-level provisioning (runs as root) ────────────────────────────────
