@@ -57,7 +57,7 @@ provision:
         iptables
 
       # Set zsh as the default shell for the Lima user
-      # usermod -s /usr/bin/zsh "{{.User}}"
+      usermod -s /usr/bin/zsh "{{.User}}"
 
       # ── Docker CE (official repo) ─────────────────────────────────────────────
       echo "Installing Docker..."
@@ -152,9 +152,9 @@ provision:
       grep -qxF 'export PATH=$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.claude/local/bin:$PATH' "$ZSHRC" \
         || echo 'export PATH=$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.claude/local/bin:$PATH' >> "$ZSHRC"
 
-      # Minimal prompt
-      grep -qxF 'export PS1="(%m):%~%% "' "$ZSHRC" \
-        || echo 'export PS1="(%m):%~%% "' >> "$ZSHRC"
+      # zsh default prompt with hostname and current directory (idempotent)
+      grep -qxF 'export PS1="(%F{magenta}%m%f):%~%% "' "$ZSHRC" \
+        || echo 'export PS1="(%F{magenta}%m%f):%~%% "' >> "$ZSHRC"
 
       echo "Provisioning complete. Run 'limactl shell agenticvm' to enter the VM."
       
