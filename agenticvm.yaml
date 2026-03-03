@@ -35,6 +35,7 @@ provision:
   - mode: system
     script: |
       #!/bin/bash
+      # exec >> /dev/hvc0 2>&1
       set -eux -o pipefail
       export DEBIAN_FRONTEND=noninteractive
 
@@ -55,8 +56,8 @@ provision:
         ca-certificates \
         iptables
 
-       # Set zsh as the default shell for the Lima user
-      usermod -s /usr/bin/zsh "{{.User}}"
+      # Set zsh as the default shell for the Lima user
+      # usermod -s /usr/bin/zsh "{{.User}}"
 
       # ── Docker CE (official repo) ─────────────────────────────────────────────
       echo "Installing Docker..."
@@ -119,6 +120,7 @@ provision:
   - mode: user
     script: |
       #!/bin/bash
+      # exec >> /dev/hvc0 2>&1
       set -eux -o pipefail
 
       # ──  uv (fast Python package and project manager) ──────────────────────────
@@ -151,8 +153,8 @@ provision:
         || echo 'export PATH=$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.claude/local/bin:$PATH' >> "$ZSHRC"
 
       # Minimal prompt
-      grep -qxF 'export PS1="vm:%1~%% "' "$ZSHRC" \
-        || echo 'export PS1="vm:%1~%% "' >> "$ZSHRC"
+      grep -qxF 'export PS1="(%m):%~%% "' "$ZSHRC" \
+        || echo 'export PS1="(%m):%~%% "' >> "$ZSHRC"
 
       echo "Provisioning complete. Run 'limactl shell agenticvm' to enter the VM."
       
